@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { to: "/", icon: Home, label: "Dashboard" },
+  { to: "/dashboard", icon: Home, label: "Dashboard" },
   { to: "/history", icon: History, label: "History" },
   { to: "/weight", icon: Scale, label: "Weight" },
   { to: "/meals", icon: Utensils, label: "Meals" },
@@ -74,7 +74,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   isActive ? "text-primary" : "text-muted-foreground"
                 )
               }
-              end={to === "/"}
+              end={to === "/dashboard"}
             >
               <Icon className="h-5 w-5" />
               {label}
@@ -90,7 +90,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <NavLink
               key={to}
               to={to}
-              end={to === "/"}
+              end={to === "/dashboard"}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
