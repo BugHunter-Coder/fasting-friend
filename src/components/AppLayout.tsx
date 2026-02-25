@@ -1,7 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Flame, Home, History, Scale, Utensils, TrendingUp, LogOut, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Flame, Home, History, Scale, Utensils, TrendingUp, LogOut, User, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,24 @@ const navItems = [
 export function AppLayout({ children }: { children: ReactNode }) {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const checkAdmin = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+      if (data?.role === 'admin') setIsAdmin(true);
+    };
+    checkAdmin();
+  }, [user]);
+
+  const allNavItems = isAdmin 
+    ? [...navItems, { to: "/admin", icon: ShieldAlert, label: "Admin" }] 
+    : navItems;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -45,7 +64,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       {/* Bottom nav (mobile) */}
       <nav className="sticky bottom-0 border-t bg-card/90 backdrop-blur-md md:hidden">
         <div className="flex justify-around py-2">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {allNavItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
@@ -67,7 +86,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       {/* Desktop sidebar-style nav */}
       <nav className="fixed left-0 top-14 hidden h-[calc(100vh-3.5rem)] w-56 border-r bg-card/50 p-4 md:block">
         <div className="space-y-1">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {allNavItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}

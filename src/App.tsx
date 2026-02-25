@@ -12,6 +12,7 @@ import WeightPage from "./pages/WeightPage";
 import MealsPage from "./pages/MealsPage";
 import InsightsPage from "./pages/InsightsPage";
 import ProfilePage from "./pages/ProfilePage";
+import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const AppRoutes = () => (
     <Route path="/meals" element={<ProtectedRoute><MealsPage /></ProtectedRoute>} />
     <Route path="/insights" element={<ProtectedRoute><InsightsPage /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+    <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

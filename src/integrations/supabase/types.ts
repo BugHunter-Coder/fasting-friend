@@ -50,6 +50,42 @@ export type Database = {
         }
         Relationships: []
       }
+      health_snapshots: {
+        Row: {
+          active_energy: number | null
+          created_at: string
+          date: string
+          heart_rate: number | null
+          id: string
+          source: string
+          steps: number | null
+          user_id: string
+          weight: number | null
+        }
+        Insert: {
+          active_energy?: number | null
+          created_at?: string
+          date?: string
+          heart_rate?: number | null
+          id?: string
+          source: string
+          steps?: number | null
+          user_id: string
+          weight?: number | null
+        }
+        Update: {
+          active_energy?: number | null
+          created_at?: string
+          date?: string
+          heart_rate?: number | null
+          id?: string
+          source?: string
+          steps?: number | null
+          user_id?: string
+          weight?: number | null
+        }
+        Relationships: []
+      }
       meal_logs: {
         Row: {
           calories: number | null
@@ -96,8 +132,12 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           display_name: string | null
+          health_data: Json | null
+          healthkit_connected: boolean | null
+          healthkit_last_sync: string | null
           id: string
           preferred_schedule: string | null
+          role: string | null
           target_weight: number | null
           updated_at: string
           user_id: string
@@ -106,6 +146,9 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
+          health_data?: Json | null
+          healthkit_connected?: boolean | null
+          healthkit_last_sync?: string | null
           id?: string
           preferred_schedule?: string | null
           target_weight?: number | null
@@ -116,6 +159,9 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
+          health_data?: Json | null
+          healthkit_connected?: boolean | null
+          healthkit_last_sync?: string | null
           id?: string
           preferred_schedule?: string | null
           target_weight?: number | null
