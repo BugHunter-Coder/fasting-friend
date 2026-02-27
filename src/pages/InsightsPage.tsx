@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Trophy, Flame, Clock, TrendingUp } from "lucide-react";
 
 const BADGES = [
@@ -16,12 +16,17 @@ const BADGES = [
   { threshold: 100, label: "Century Club", emoji: "👑" },
 ];
 
+type Range = "7" | "30";
+
 const InsightsPage = () => {
   const { user } = useAuth();
   const [totalFasts, setTotalFasts] = useState(0);
   const [totalHours, setTotalHours] = useState(0);
   const [longestFast, setLongestFast] = useState(0);
-  const [weeklyData, setWeeklyData] = useState<{ day: string; hours: number }[]>([]);
+  const [avgHours, setAvgHours] = useState(0);
+  const [range, setRange] = useState<Range>("7");
+  const [chartData7, setChartData7] = useState<{ day: string; hours: number }[]>([]);
+  const [chartData30, setChartData30] = useState<{ day: string; hours: number }[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -46,26 +51,38 @@ const InsightsPage = () => {
       });
       setTotalHours(Math.round(sumH));
       setLongestFast(Math.round(maxH * 10) / 10);
+      setAvgHours(fasts.length > 0 ? Math.round((sumH / fasts.length) * 10) / 10 : 0);
 
-      // Weekly chart (last 7 days)
-      const days = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        d.setHours(0, 0, 0, 0);
-        const dEnd = new Date(d);
-        dEnd.setDate(dEnd.getDate() + 1);
-        const dayHours = fasts
-          .filter((f) => f.ended_at && new Date(f.ended_at) >= d && new Date(f.ended_at) < dEnd)
-          .reduce((sum, f) => sum + (new Date(f.ended_at!).getTime() - new Date(f.started_at).getTime()) / 3600000, 0);
-        days.push({ day: d.toLocaleDateString("en", { weekday: "short" }), hours: Math.round(dayHours * 10) / 10 });
-      }
-      setWeeklyData(days);
+      // Build chart data for N days back
+      const buildChart = (days: number, abbrev: boolean) => {
+        const result = [];
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          d.setHours(0, 0, 0, 0);
+          const dEnd = new Date(d);
+          dEnd.setDate(dEnd.getDate() + 1);
+          const dayHours = fasts
+            .filter((f) => f.ended_at && new Date(f.ended_at) >= d && new Date(f.ended_at) < dEnd)
+            .reduce((sum, f) => sum + (new Date(f.ended_at!).getTime() - new Date(f.started_at).getTime()) / 3600000, 0);
+          result.push({
+            day: abbrev
+              ? d.toLocaleDateString("en", { weekday: "short" })
+              : d.toLocaleDateString("en", { month: "short", day: "numeric" }),
+            hours: Math.round(dayHours * 10) / 10,
+          });
+        }
+        return result;
+      };
+
+      setChartData7(buildChart(7, true));
+      setChartData30(buildChart(30, false));
     };
     fetch();
   }, [user]);
 
   const earnedBadges = BADGES.filter((b) => totalFasts >= b.threshold);
+  const chartData = range === "7" ? chartData7 : chartData30;
 
   return (
     <AppLayout>
@@ -73,7 +90,7 @@ const InsightsPage = () => {
         <h1 className="text-2xl font-bold">Health Insights 📊</h1>
 
         {/* Summary stats */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Card className="border-none text-center">
             <CardContent className="py-4">
               <Flame className="mx-auto mb-1 h-5 w-5 text-primary" />
@@ -95,26 +112,59 @@ const InsightsPage = () => {
               <p className="text-xs text-muted-foreground">Longest</p>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Weekly chart */}
-        {weeklyData.length > 0 && (
-          <Card className="border-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">This Week</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={weeklyData}>
-                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="hours" fill="hsl(24, 80%, 55%)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+          <Card className="border-none text-center">
+            <CardContent className="py-4">
+              <TrendingUp className="mx-auto mb-1 h-5 w-5 text-accent" />
+              <p className="font-display text-xl font-bold">{avgHours}h</p>
+              <p className="text-xs text-muted-foreground">Avg Fast</p>
             </CardContent>
           </Card>
-        )}
+        </div>
+
+        {/* Chart with range toggle */}
+        <Card className="border-none">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Fasting Hours</CardTitle>
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                {(["7", "30"] as Range[]).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRange(r)}
+                    className={`px-3 py-1 text-xs font-medium transition-colors ${
+                      range === r
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {r}D
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={chartData} barCategoryGap="30%">
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: range === "30" ? 9 : 11 }}
+                  interval={range === "30" ? 4 : 0}
+                />
+                <YAxis tick={{ fontSize: 11 }} width={28} />
+                <Tooltip formatter={(v: number) => [`${v}h`, "Hours"]} />
+                <Bar dataKey="hours" radius={[5, 5, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={index}
+                      fill={entry.hours > 0 ? "hsl(24, 80%, 55%)" : "hsl(24, 80%, 85%)"}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
         {/* Badges */}
         <Card className="border-none">
@@ -124,6 +174,9 @@ const InsightsPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {totalFasts === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-2">Complete your first fast to earn badges!</p>
+            )}
             <div className="grid grid-cols-3 gap-2">
               {BADGES.map((badge) => {
                 const earned = totalFasts >= badge.threshold;
@@ -136,6 +189,9 @@ const InsightsPage = () => {
                   >
                     <span className="text-2xl">{badge.emoji}</span>
                     <span className="mt-1 text-xs font-medium">{badge.label}</span>
+                    {!earned && (
+                      <span className="text-[10px] text-muted-foreground mt-0.5">{badge.threshold} fasts</span>
+                    )}
                   </motion.div>
                 );
               })}

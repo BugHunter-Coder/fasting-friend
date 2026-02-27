@@ -5,10 +5,11 @@ import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { format } from "date-fns";
-import { Plus, Target } from "lucide-react";
+import { Plus, Target, Trash2 } from "lucide-react";
 
 interface WeightEntry {
   id: string;
@@ -57,10 +58,24 @@ const WeightPage = () => {
     fetchEntries();
   };
 
+  const deleteEntry = async (id: string) => {
+    const { error } = await supabase.from("weight_entries").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+    toast({ title: "Entry deleted" });
+  };
+
   const chartData = entries.map((e) => ({
     date: format(new Date(e.recorded_at), "MMM d"),
     weight: e.weight,
   }));
+
+  const latestWeight = entries.length > 0 ? entries[entries.length - 1].weight : null;
+  const firstWeight = entries.length > 0 ? entries[0].weight : null;
+  const totalChange = latestWeight && firstWeight ? latestWeight - firstWeight : null;
 
   return (
     <AppLayout>
@@ -70,26 +85,49 @@ const WeightPage = () => {
         {/* Add weight */}
         <Card className="border-none">
           <CardContent className="flex gap-2 py-4">
-            <Input type="number" placeholder="Weight (lbs/kg)" value={weight} onChange={(e) => setWeight(e.target.value)} className="flex-1" />
+            <Input
+              type="number"
+              placeholder="Weight (lbs/kg)"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addWeight()}
+              className="flex-1"
+            />
             <Button onClick={addWeight} className="gap-1"><Plus className="h-4 w-4" /> Log</Button>
           </CardContent>
         </Card>
 
-        {/* Goal */}
-        {goalWeight && (
-          <Card className="border-none bg-gradient-to-r from-warm-sage/10 to-accent/10">
-            <CardContent className="flex items-center gap-3 py-4">
-              <Target className="h-5 w-5 text-warm-sage" />
-              <div>
-                <p className="text-sm font-semibold">Goal: {goalWeight} lbs</p>
-                {entries.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {Math.abs(entries[entries.length - 1].weight - goalWeight).toFixed(1)} to go!
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        {/* Goal + change summary */}
+        {(goalWeight || totalChange !== null) && (
+          <div className="grid grid-cols-2 gap-3">
+            {goalWeight && (
+              <Card className="border-none bg-gradient-to-r from-warm-sage/10 to-accent/10">
+                <CardContent className="flex items-center gap-3 py-4">
+                  <Target className="h-5 w-5 text-warm-sage shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold">Goal: {goalWeight}</p>
+                    {latestWeight && (
+                      <p className="text-xs text-muted-foreground">
+                        {Math.abs(latestWeight - goalWeight).toFixed(1)} to go
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {totalChange !== null && entries.length > 1 && (
+              <Card className="border-none">
+                <CardContent className="flex items-center gap-3 py-4">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {totalChange > 0 ? "+" : ""}{totalChange.toFixed(1)} overall
+                    </p>
+                    <p className="text-xs text-muted-foreground">since first entry</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
 
         {/* Chart */}
@@ -106,7 +144,7 @@ const WeightPage = () => {
                   <Tooltip />
                   <Line type="monotone" dataKey="weight" stroke="hsl(24, 80%, 55%)" strokeWidth={2} dot={{ r: 3 }} />
                   {goalWeight && (
-                    <Line type="monotone" dataKey={() => goalWeight} stroke="hsl(140, 20%, 60%)" strokeDasharray="5 5" dot={false} name="Goal" />
+                    <ReferenceLine y={goalWeight} stroke="hsl(140, 20%, 60%)" strokeDasharray="5 5" label={{ value: "Goal", fontSize: 10, fill: "hsl(140, 20%, 60%)" }} />
                   )}
                 </LineChart>
               </ResponsiveContainer>
@@ -114,15 +152,43 @@ const WeightPage = () => {
           </Card>
         )}
 
-        {/* History */}
-        {entries.slice().reverse().slice(0, 10).map((e) => (
-          <Card key={e.id} className="border-none">
-            <CardContent className="flex items-center justify-between py-3">
-              <span className="text-sm text-muted-foreground">{format(new Date(e.recorded_at), "MMM d, yyyy")}</span>
-              <span className="font-semibold">{e.weight}</span>
+        {/* History with delete */}
+        {entries.length > 0 && (
+          <Card className="border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Log</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 p-2">
+              {entries.slice().reverse().slice(0, 15).map((e) => (
+                <div key={e.id} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-muted/40 transition-colors">
+                  <span className="text-sm text-muted-foreground">{format(new Date(e.recorded_at), "MMM d, yyyy")}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold">{e.weight}</span>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this entry?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Remove the weight entry of {e.weight} from {format(new Date(e.recorded_at), "MMM d, yyyy")}?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteEntry(e.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
-        ))}
+        )}
       </div>
     </AppLayout>
   );
