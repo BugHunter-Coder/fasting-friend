@@ -10,11 +10,13 @@ import { useToast } from "@/hooks/use-toast";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { format } from "date-fns";
 import { Plus, Target, Trash2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 interface WeightEntry {
   id: string;
   weight: number;
   recorded_at: string;
+  notes: string | null;
 }
 
 const WeightPage = () => {
@@ -22,6 +24,7 @@ const WeightPage = () => {
   const { toast } = useToast();
   const [entries, setEntries] = useState<WeightEntry[]>([]);
   const [weight, setWeight] = useState("");
+  const [weightNotes, setWeightNotes] = useState("");
   const [goalWeight, setGoalWeight] = useState<number | null>(null);
 
   const fetchEntries = async () => {
@@ -48,12 +51,14 @@ const WeightPage = () => {
     const { error } = await supabase.from("weight_entries").insert({
       user_id: user.id,
       weight: Number(weight),
+      notes: weightNotes || null,
     });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return;
     }
     setWeight("");
+    setWeightNotes("");
     toast({ title: "Weight logged! ⚖️" });
     fetchEntries();
   };
@@ -84,16 +89,24 @@ const WeightPage = () => {
 
         {/* Add weight */}
         <Card className="border-none">
-          <CardContent className="flex gap-2 py-4">
-            <Input
-              type="number"
-              placeholder="Weight (lbs/kg)"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addWeight()}
-              className="flex-1"
+          <CardContent className="space-y-2 py-4">
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="Weight (lbs/kg)"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addWeight()}
+                className="flex-1"
+              />
+              <Button onClick={addWeight} className="gap-1"><Plus className="h-4 w-4" /> Log</Button>
+            </div>
+            <Textarea
+              placeholder="Notes (optional) — e.g. post-workout, morning"
+              value={weightNotes}
+              onChange={(e) => setWeightNotes(e.target.value)}
+              rows={2}
             />
-            <Button onClick={addWeight} className="gap-1"><Plus className="h-4 w-4" /> Log</Button>
           </CardContent>
         </Card>
 
@@ -161,7 +174,10 @@ const WeightPage = () => {
             <CardContent className="space-y-1 p-2">
               {entries.slice().reverse().slice(0, 15).map((e) => (
                 <div key={e.id} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-muted/40 transition-colors">
-                  <span className="text-sm text-muted-foreground">{format(new Date(e.recorded_at), "MMM d, yyyy")}</span>
+                  <div>
+                    <span className="text-sm text-muted-foreground">{format(new Date(e.recorded_at), "MMM d, yyyy")}</span>
+                    {e.notes && <p className="text-xs italic text-muted-foreground">{e.notes}</p>}
+                  </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold">{e.weight}</span>
                     <AlertDialog>

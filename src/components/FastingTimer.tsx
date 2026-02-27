@@ -1,7 +1,9 @@
- import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useHaptics } from "@/hooks/useHaptics";
+import { ImpactStyle } from "@capacitor/haptics";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -37,6 +39,7 @@ interface ActiveFast {
 export function FastingTimer() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { impact, notification } = useHaptics();
   const [activeFast, setActiveFast] = useState<ActiveFast | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [schedule, setSchedule] = useState("16:8");
@@ -109,6 +112,10 @@ export function FastingTimer() {
 
   const startFast = async () => {
     if (!user) return;
+    await impact(ImpactStyle.Heavy);
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
     const started_at = new Date().toISOString();
     const { data, error } = await supabase
       .from("fasts")
@@ -127,6 +134,7 @@ export function FastingTimer() {
     }
     setActiveFast(data as ActiveFast);
     setNewStartTime(new Date(started_at).toISOString().slice(0, 16));
+    notification('SUCCESS');
     toast({ title: "Fast started! 🔥", description: `${fastHours}-hour fast has begun. You got this!` });
   };
 
@@ -149,6 +157,7 @@ export function FastingTimer() {
 
   const endFast = async () => {
     if (!activeFast || !user) return;
+    await impact(ImpactStyle.Medium);
     const { error } = await supabase
       .from("fasts")
       .update({ status: "completed", ended_at: new Date().toISOString(), notes })
@@ -159,8 +168,24 @@ export function FastingTimer() {
     }
     setActiveFast(null);
     setNotes("");
+    goalNotifiedRef.current = null;
+    notification('SUCCESS');
     toast({ title: "Fast complete! 🎉", description: "Great job staying consistent!" });
   };
+
+  // Browser notification when fast goal is reached
+  const goalNotifiedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeFast || remaining > 0) return;
+    if (goalNotifiedRef.current === activeFast.id) return;
+    goalNotifiedRef.current = activeFast.id;
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification("FastFlow – Fast complete! 🎉", {
+        body: `You've completed your ${activeFast.schedule_type} fast. Great job!`,
+        icon: "/favicon.ico",
+      });
+    }
+  }, [remaining, activeFast]);
 
   const circumference = 2 * Math.PI * 90;
   const strokeDashoffset = circumference * (1 - progress);

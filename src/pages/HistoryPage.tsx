@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Clock, Calendar, Trash2 } from "lucide-react";
+import { Clock, Calendar, Trash2, Download } from "lucide-react";
 
 interface Fast {
   id: string;
@@ -37,6 +37,30 @@ const HistoryPage = () => {
 
   useEffect(() => { fetchFasts(); }, [user]);
 
+  const exportCSV = () => {
+    const header = "Schedule,Status,Duration,Started At,Ended At,Notes";
+    const rows = fasts.map((f) => {
+      const duration = getDuration(f);
+      const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+      return [
+        escape(f.schedule_type),
+        escape(f.status),
+        escape(duration),
+        escape(f.started_at),
+        escape(f.ended_at ?? ""),
+        escape(f.notes ?? ""),
+      ].join(",");
+    });
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `fasting-history-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const deleteFast = async (id: string) => {
     const { error } = await supabase.from("fasts").delete().eq("id", id);
     if (error) {
@@ -58,7 +82,14 @@ const HistoryPage = () => {
   return (
     <AppLayout>
       <div className="mx-auto max-w-lg space-y-4 md:ml-56">
-        <h1 className="text-2xl font-bold">Fasting History 📖</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Fasting History 📖</h1>
+          {fasts.length > 0 && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportCSV}>
+              <Download className="h-4 w-4" /> Export CSV
+            </Button>
+          )}
+        </div>
         {fasts.length === 0 && (
           <Card className="border-none">
             <CardContent className="py-8 text-center text-muted-foreground">

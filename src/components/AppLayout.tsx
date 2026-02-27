@@ -2,9 +2,10 @@ import { ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Flame, Home, History, Scale, Utensils, TrendingUp, LogOut, User, ShieldAlert } from "lucide-react";
+import { Flame, Home, History, Scale, Utensils, TrendingUp, LogOut, User, ShieldAlert, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTheme } from "next-themes";
 
 const navItems = [
   { to: "/dashboard", icon: Home, label: "Dashboard" },
@@ -17,6 +18,7 @@ const navItems = [
 export function AppLayout({ children }: { children: ReactNode }) {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const { resolvedTheme, setTheme } = useTheme();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -32,22 +34,30 @@ export function AppLayout({ children }: { children: ReactNode }) {
     checkAdmin();
   }, [user]);
 
-  const allNavItems = isAdmin 
-    ? [...navItems, { to: "/admin", icon: ShieldAlert, label: "Admin" }] 
+  const allNavItems = isAdmin
+    ? [...navItems, { to: "/admin", icon: ShieldAlert, label: "Admin" }]
     : navItems;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background safe-area-inset-top">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
-        <div className="container flex h-14 items-center justify-between">
+      <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md pt-[env(safe-area-inset-top)]">
+        <div className="container flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary">
               <Flame className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="font-display text-lg font-bold text-foreground">FastFlow</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              aria-label="Toggle theme"
+            >
+              {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
               <User className="h-4 w-4" />
             </Button>
@@ -59,11 +69,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </header>
 
       {/* Main content */}
-      <main className="container flex-1 py-6">{children}</main>
+      <main className="container flex-1 py-6 pb-[calc(env(safe-area-inset-bottom)+5rem)] md:pb-6">{children}</main>
 
       {/* Bottom nav (mobile) */}
-      <nav className="sticky bottom-0 border-t bg-card/90 backdrop-blur-md md:hidden">
-        <div className="flex justify-around py-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card/90 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden">
+        <div className="flex justify-around py-3">
           {allNavItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
